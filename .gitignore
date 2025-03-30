@@ -1,3 +1,5 @@
-.gitignore
-backend/venv/
+.venv/
 .idea/
+.gitignore
+
+movierecf/node_modules
