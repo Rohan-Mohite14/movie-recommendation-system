@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Mail, Lock, User, Phone, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import axios from 'axios';
 
 interface AuthProps {
   onAuth: () => void;
@@ -8,55 +9,58 @@ interface AuthProps {
 interface ValidationErrors {
   email?: string;
   password?: string;
+  name?: string;
+  phone?: string;
 }
 
 export default function Auth({ onAuth }: AuthProps) {
-  // Get initial auth mode from localStorage
   const [isLogin, setIsLogin] = useState(() => {
     const authMode = localStorage.getItem('authMode');
-    localStorage.removeItem('authMode'); // Clear it after reading
+    localStorage.removeItem('authMode');
     return authMode !== 'signup';
   });
+
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [errors, setErrors] = useState<ValidationErrors>({});
+  const [message, setMessage] = useState<string | null>(null);
 
-  const validateEmail = (email: string) => {
-    const emailRegex = /^[a-zA-Z0-9._%+-]+@(gmail|yahoo|outlook|hotmail)\.(com|net|org)$/;
-    return emailRegex.test(email);
-  };
+  // const validateEmail = (email: string) => /^[a-zA-Z0-9._%+-]+@(gmail|yahoo|outlook|hotmail)\.(com|net|org)$/.test(email);
+  // const validatePassword = (password: string) => /^(?=.*[0-9])(?=.*[!@#$%^&*])[a-zA-Z0-9!@#$%^&*]{9,}$/.test(password);
+  // const validatePhone = (phone: string) => /^\d{10,15}$/.test(phone);
 
-  const validatePassword = (password: string) => {
-    const passwordRegex = /^(?=.*[0-9])(?=.*[!@#$%^&*])[a-zA-Z0-9!@#$%^&*]{9,}$/;
-    return passwordRegex.test(password);
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const newErrors: ValidationErrors = {};
 
-    if (!validateEmail(email)) {
-      newErrors.email = 'Please enter a valid email address (gmail, yahoo, outlook, or hotmail)';
-    }
-
-    if (!validatePassword(password)) {
-      newErrors.password = 'Password must be at least 9 characters with one number and special character';
-    }
+    // if (!validateEmail(email)) newErrors.email = 'Invalid email format.';
+    // if (!validatePassword(password)) newErrors.password = 'Password must be at least 9 chars with one number and special character.';
+    // if (!isLogin && !name.trim()) newErrors.name = 'Full name is required.';
+    // if (!isLogin && !validatePhone(phone)) newErrors.phone = 'Phone must be 10 to 15 digits.';
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
     }
 
-    if (rememberMe) {
-      // In a real app, you'd use a secure storage method
-      localStorage.setItem('rememberedEmail', email);
-    }
+    try {
+      const endpoint = isLogin ? '/login' : '/signup';
+      const payload = isLogin
+        ? { email, password }
+        : { name, email, phone, password };
 
-    setErrors({});
-    onAuth();
+      const response = await axios.post(`http://127.0.0.1:5000${endpoint}`, payload);
+
+      setMessage(response.data.message);
+      setErrors({});
+      onAuth(); // or redirect / store token
+    } catch (err: any) {
+      setMessage(err.response?.data?.error || 'An error occurred.');
+    }
   };
 
   return (
@@ -78,19 +82,25 @@ export default function Auth({ onAuth }: AuthProps) {
                 <input
                   type="text"
                   required
-                  className="w-full pl-10 pr-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full pl-10 pr-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white"
                   placeholder="Full Name"
                 />
               </div>
+              {errors.name && <p className="text-red-400 text-sm">{errors.name}</p>}
               <div className="relative">
                 <Phone className="absolute left-3 top-3 text-gray-400" size={20} />
                 <input
                   type="tel"
                   required
-                  className="w-full pl-10 pr-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="w-full pl-10 pr-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white"
                   placeholder="Phone Number"
                 />
               </div>
+              {errors.phone && <p className="text-red-400 text-sm">{errors.phone}</p>}
             </>
           )}
           <div className="space-y-2">
@@ -103,7 +113,7 @@ export default function Auth({ onAuth }: AuthProps) {
                 onChange={(e) => setEmail(e.target.value)}
                 className={`w-full pl-10 pr-3 py-2 bg-gray-700 border ${
                   errors.email ? 'border-red-500' : 'border-gray-600'
-                } rounded-lg text-white focus:outline-none focus:border-blue-500`}
+                } rounded-lg text-white`}
                 placeholder="Email Address"
               />
             </div>
@@ -118,19 +128,19 @@ export default function Auth({ onAuth }: AuthProps) {
             <div className="relative">
               <Lock className="absolute left-3 top-3 text-gray-400" size={20} />
               <input
-                type={showPassword ? "text" : "password"}
+                type={showPassword ? 'text' : 'password'}
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className={`w-full pl-10 pr-12 py-2 bg-gray-700 border ${
                   errors.password ? 'border-red-500' : 'border-gray-600'
-                } rounded-lg text-white focus:outline-none focus:border-blue-500`}
+                } rounded-lg text-white`}
                 placeholder="Password"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-3 text-gray-400 hover:text-gray-300 focus:outline-none"
+                className="absolute right-3 top-3 text-gray-400 hover:text-gray-300"
               >
                 {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
@@ -149,7 +159,7 @@ export default function Auth({ onAuth }: AuthProps) {
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className="form-checkbox h-4 w-4 text-blue-600 rounded border-gray-600 bg-gray-700 focus:ring-blue-500"
+                  className="form-checkbox h-4 w-4 text-blue-600 bg-gray-700"
                 />
                 <span>Remember me</span>
               </label>
@@ -160,11 +170,14 @@ export default function Auth({ onAuth }: AuthProps) {
           )}
           <button
             type="submit"
-            className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
             {isLogin ? 'Sign In' : 'Sign Up'}
           </button>
         </form>
+        {message && (
+          <p className="text-center text-sm text-yellow-400 mt-4">{message}</p>
+        )}
         <div className="text-center">
           <button
             onClick={() => setIsLogin(!isLogin)}

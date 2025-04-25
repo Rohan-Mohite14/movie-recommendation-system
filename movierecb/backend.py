@@ -8,7 +8,7 @@ app = Flask(__name__)
 CORS(app)
 
 # Replace with your actual Mongo URI
-app.config["MONGO_URI"] = "mongodb+srv://Virendra:MongoFirstCluster@movierec.vgfqr1z.mongodb.net/?retryWrites=true&w=majority&appName=MovieRec"
+app.config["MONGO_URI"] = "mongodb+srv://Virendra:MongoFirstCluster@movierec.vgfqr1z.mongodb.net/movieDB?retryWrites=true&w=majority&appName=MovieRec"
 mongo = PyMongo(app)
 
 @app.route('/signup', methods=['POST'])
@@ -24,8 +24,8 @@ def signup():
         return jsonify({"error": "Invalid email. Only gmail, hotmail, and yahoo allowed."}), 400
 
     # Password validation: min 9 chars, 1 uppercase, 1 lowercase, 1 number
-    if not re.match(r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{9,}$", password):
-        return jsonify({"error": "Password must be at least 9 characters with 1 uppercase, 1 lowercase, and 1 number."}), 400
+    if not re.match(r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{9,}$", password):
+        return jsonify({"error": "Password must be at least 9 characters with 1 uppercase, 1 lowercase, 1 number, and 1 special character."}), 400
 
     # Phone validation
     if not re.match(r"^\d{10,15}$", phone):
