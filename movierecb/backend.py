@@ -35,7 +35,7 @@ def signup():
         return jsonify({"error": "Invalid email. Only gmail, hotmail, and yahoo allowed."}), 400
 
         # Password validation: min 9 chars, 1 uppercase, 1 lowercase, 1 number
-    if not re.match(r"^(?=.[a-z])(?=.[A-Z])(?=.\d)(?=.[\W_]).{9,}$", password):
+    if not re.match(r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{9,}$", password):
         return jsonify({"error": "Password must be at least 9 characters with 1 uppercase, 1 lowercase, 1 number, and 1 special character."}), 400
 
     # Phone validation
