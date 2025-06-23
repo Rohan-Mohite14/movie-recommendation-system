@@ -81,6 +81,21 @@ def login():
 
 
 
+@app.route('/movies', methods=['GET'])
+def get_movies():
+    movie_collection = mongo.db.movies
+    movies = []
+    for movie in movie_collection.find():
+        movies.append({
+            "id": str(movie["_id"]),
+            "title": movie["title"],
+            "plot": movie.get("plot", "No plot available."),
+            "genre": movie.get("genres", []),
+            "rating": 0  # Initial rating (frontend can handle actual star input)
+        })
+    return jsonify(movies)
+
+
 @app.route('/api/search')
 def search_movies():
     query = request.args.get('query', '').strip()

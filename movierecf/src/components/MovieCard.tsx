@@ -20,52 +20,58 @@ export default function MovieCard({ movie, isWishlisted, onWishlist, onLike, onD
         className="w-full h-64 object-cover"
       />
       <div className="p-4">
-        {/* Movie Title and Wishlist Button */}
         <div className="flex justify-between items-start">
           <h3 className="text-lg font-semibold text-white">{movie.title}</h3>
           <button
-            onClick={() => onWishlist(movie)}
-            className="text-blue-400 hover:text-blue-300"
-            aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
+              onClick={() => onWishlist(movie)}
+              className="text-blue-400 hover:text-blue-300"
           >
-            {isWishlisted ? <BookmarkCheck size={20} /> : <BookmarkPlus size={20} />}
+            {isWishlisted ? <BookmarkCheck size={20}/> : <BookmarkPlus size={20}/>}
           </button>
         </div>
 
-        {/* Rating and Year */}
         <div className="flex items-center mt-2">
-          <Star className="text-yellow-400" size={16} />
-          <span className="text-yellow-400 ml-1">{movie.rating}</span>
-          <span className="text-gray-400 ml-2">({movie.year})</span>
+          <Star className="text-yellow-400" size={16}/>
+          <span className="text-yellow-400 ml-1">{movie.rating || 'N/A'}</span>
+          <span className="text-gray-400 ml-2">({movie.year || 'Unknown'})</span>
         </div>
 
-        {/* Genre Tags */}
         <div className="mt-2 flex flex-wrap gap-2">
           {movie.genre.map((g) => (
-            <span key={g} className="px-2 py-1 bg-gray-700 rounded-full text-xs text-gray-300">
-              {g}
-            </span>
+              <span key={g} className="px-2 py-1 bg-gray-700 rounded-full text-xs text-gray-300">
+        {g}
+      </span>
           ))}
         </div>
 
-        {/* Like/Dislike Buttons */}
-        <div className="mt-4 flex justify-center space-x-4">
-          <button
-            onClick={() => onLike?.(movie)}
-            className="p-2 rounded-full hover:bg-gray-700 text-gray-400 hover:text-green-400 transition-colors"
-            aria-label="Like movie"
-          >
-            <ThumbsUp size={20} />
+        {/* Expandable Plot Section */}
+        <details className="mt-2 text-sm text-gray-300">
+          <summary className="cursor-pointer text-blue-400">View Plot</summary>
+          <p className="mt-1">{movie.plot}</p>
+        </details>
+
+        {/* Watchlist/Watched Buttons */}
+        <div className="mt-4 flex justify-between space-x-2">
+          <button className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded-full text-sm w-1/2">
+            Add to Watchlist
           </button>
-          <button
-            onClick={() => onDislike?.(movie)}
-            className="p-2 rounded-full hover:bg-gray-700 text-gray-400 hover:text-red-400 transition-colors"
-            aria-label="Dislike movie"
-          >
-            <ThumbsDown size={20} />
+          <button className="bg-green-600 hover:bg-green-500 text-white px-3 py-1 rounded-full text-sm w-1/2">
+            Mark as Watched
+          </button>
+        </div>
+
+        <div className="mt-4 flex justify-center space-x-4">
+          <button onClick={() => onLike?.(movie)}
+                  className="p-2 rounded-full hover:bg-gray-700 text-gray-400 hover:text-green-400">
+            <ThumbsUp size={20}/>
+          </button>
+          <button onClick={() => onDislike?.(movie)}
+                  className="p-2 rounded-full hover:bg-gray-700 text-gray-400 hover:text-red-400">
+            <ThumbsDown size={20}/>
           </button>
         </div>
       </div>
+
     </div>
   );
 }

@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import MovieCard from '../components/MovieCard';
 import { Movie } from '../types';
+import InfiniteScroll from 'react-infinite-scroll-component';
 import { TrendingUp, ThumbsUp, Sparkles, Star, Film, Clock, UserCheck } from 'lucide-react';
 
-// Component props interface
 interface HomeProps {
   wishlist: Movie[];
   onWishlist: (movie: Movie) => void;
@@ -11,14 +11,12 @@ interface HomeProps {
   onWelcomeSeen: () => void;
 }
 
-// Section header props interface
 interface SectionHeaderProps {
   icon: React.ElementType;
   title: string;
   subtitle?: string;
 }
 
-// Movie section props interface
 interface MovieSectionProps {
   title: string;
   subtitle: string;
@@ -30,7 +28,6 @@ interface MovieSectionProps {
   onDislike?: (movie: Movie) => void;
 }
 
-// Section header component for consistent styling
 const SectionHeader = ({ icon: Icon, title, subtitle }: SectionHeaderProps) => (
   <div className="mb-8">
     <div className="flex items-center space-x-2 mb-2">
@@ -41,7 +38,6 @@ const SectionHeader = ({ icon: Icon, title, subtitle }: SectionHeaderProps) => (
   </div>
 );
 
-// Movie section component
 const MovieSection = ({ title, subtitle, movies, icon, wishlist, onWishlist, onLike, onDislike }: MovieSectionProps) => (
   <section className="mb-12">
     <SectionHeader icon={icon} title={title} subtitle={subtitle} />
@@ -61,178 +57,94 @@ const MovieSection = ({ title, subtitle, movies, icon, wishlist, onWishlist, onL
 );
 
 export default function Home({ wishlist, onWishlist, showWelcome, onWelcomeSeen }: HomeProps) {
-  // State management
   const [activeCategory, setActiveCategory] = useState('all');
+  const [allMovies, setAllMovies] = useState<Movie[]>([]);
+  const [visibleMovies, setVisibleMovies] = useState<Movie[]>([]);
+  const [hasMore, setHasMore] = useState(true);
   const [likedMovies, setLikedMovies] = useState<Set<string>>(new Set());
   const [dislikedMovies, setDislikedMovies] = useState<Set<string>>(new Set());
+  const ITEMS_PER_PAGE = 30;
 
-  // All movies data
-  const allMovies: Movie[] = [
-    // Action Movies
-    {
-      id: '1',
-      title: 'Inception',
-      poster: 'https://images.unsplash.com/photo-1440404653325-ab127d49abc1?auto=format&fit=crop&q=80',
-      year: 2010,
-      rating: 8.8,
-      genre: ['Action', 'Sci-Fi']
-    },
-    {
-      id: '2',
-      title: 'The Matrix',
-      poster: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&q=80',
-      year: 1999,
-      rating: 8.7,
-      genre: ['Action', 'Sci-Fi']
-    },
-    {
-      id: '3',
-      title: 'Mad Max: Fury Road',
-      poster: 'https://images.unsplash.com/photo-1492466245235-0d5b4c2c66d1?auto=format&fit=crop&q=80',
-      year: 2015,
-      rating: 8.1,
-      genre: ['Action', 'Adventure']
-    },
-    // Drama Movies
-    {
-      id: '4',
-      title: 'The Shawshank Redemption',
-      poster: 'https://images.unsplash.com/photo-1509347528160-9a9e33742cdb?auto=format&fit=crop&q=80',
-      year: 1994,
-      rating: 9.3,
-      genre: ['Drama']
-    },
-    {
-      id: '5',
-      title: 'The Godfather',
-      poster: 'https://images.unsplash.com/photo-1485846234645-a62644f84728?auto=format&fit=crop&q=80',
-      year: 1972,
-      rating: 9.2,
-      genre: ['Crime', 'Drama']
-    },
-    {
-      id: '6',
-      title: 'Oppenheimer',
-      poster: 'https://images.unsplash.com/photo-1440404653325-ab127d49abc1?auto=format&fit=crop&q=80',
-      year: 2023,
-      rating: 8.9,
-      genre: ['Biography', 'Drama', 'History']
-    },
-    // Sci-Fi Movies
-    {
-      id: '7',
-      title: 'Blade Runner 2049',
-      poster: 'https://images.unsplash.com/photo-1485846234645-a62644f84728?auto=format&fit=crop&q=80',
-      year: 2017,
-      rating: 8.0,
-      genre: ['Sci-Fi', 'Drama']
-    },
-    {
-      id: '8',
-      title: 'Interstellar',
-      poster: 'https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?auto=format&fit=crop&q=80',
-      year: 2014,
-      rating: 8.6,
-      genre: ['Adventure', 'Drama', 'Sci-Fi']
-    },
-    {
-      id: '9',
-      title: 'Dune',
-      poster: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&q=80',
-      year: 2024,
-      rating: 8.5,
-      genre: ['Action', 'Adventure', 'Sci-Fi']
-    },
-    // Adventure Movies
-    {
-      id: '10',
-      title: 'The Lord of the Rings',
-      poster: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&q=80',
-      year: 2001,
-      rating: 8.8,
-      genre: ['Adventure', 'Fantasy']
-    },
-    {
-      id: '11',
-      title: 'Avatar: The Way of Water',
-      poster: 'https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?auto=format&fit=crop&q=80',
-      year: 2023,
-      rating: 8.0,
-      genre: ['Action', 'Adventure', 'Sci-Fi']
-    },
-    {
-      id: '12',
-      title: 'Indiana Jones',
-      poster: 'https://images.unsplash.com/photo-1492466245235-0d5b4c2c66d1?auto=format&fit=crop&q=80',
-      year: 1981,
-      rating: 8.4,
-      genre: ['Action', 'Adventure']
+  useEffect(() => {
+    const fetchMovies = async () => {
+      try {
+        const response = await fetch('http://localhost:5000/movies'); // Replace with your deployed URL if needed
+        const data = await response.json();
+
+        const formatted = data.map((movie: any) => ({
+          ...movie,
+          id: movie.id,
+          poster: 'https://via.placeholder.com/300x400?text=Movie+Poster',
+          year: 2024,
+          rating: movie.rating || 0,
+          genre: movie.genre || [],
+        }));
+
+        setAllMovies(formatted);
+        setVisibleMovies(formatted.slice(0, ITEMS_PER_PAGE));
+      } catch (error) {
+        console.error('Error fetching movies:', error);
+      }
+    };
+
+    fetchMovies();
+  }, []);
+
+  const fetchMoreMovies = () => {
+    const next = visibleMovies.length + ITEMS_PER_PAGE;
+    const more = allMovies.slice(visibleMovies.length, next);
+
+    if (more.length === 0) {
+      setHasMore(false);
+      return;
     }
-  ];
 
-  // Filter movies based on active category
+    setVisibleMovies((prev) => [...prev, ...more]);
+  };
+
   const filteredMovies = useMemo(() => {
     if (activeCategory === 'all') {
-      return allMovies;
+      return visibleMovies;
     }
-    return allMovies.filter(movie => 
-      movie.genre.map(g => g.toLowerCase()).includes(activeCategory.toLowerCase())
+    return visibleMovies.filter((movie) =>
+      movie.genre.map((g) => g.toLowerCase()).includes(activeCategory.toLowerCase())
     );
-  }, [activeCategory]);
+  }, [visibleMovies, activeCategory]);
 
-  // Organize movies into sections
-  const trendingMovies = useMemo(() => 
-    filteredMovies.filter(movie => movie.rating >= 8.5), [filteredMovies]
-  );
+  const trendingMovies = useMemo(() => filteredMovies.filter((movie) => movie.rating >= 8.5), [filteredMovies]);
 
-  const recommendedMovies = useMemo(() => 
-    filteredMovies.filter(movie => 
-      likedMovies.has(movie.id) || 
-      movie.genre.some(g => 
+  const recommendedMovies = useMemo(() =>
+    filteredMovies.filter((movie) =>
+      likedMovies.has(movie.id) ||
+      movie.genre.some((g) =>
         filteredMovies
-          .filter(m => likedMovies.has(m.id))
-          .some(m => m.genre.includes(g))
+          .filter((m) => likedMovies.has(m.id))
+          .some((m) => m.genre.includes(g))
       )
     ), [filteredMovies, likedMovies]
   );
 
-  const personalizedMovies = useMemo(() => 
-    filteredMovies.filter(movie => 
-      // Movies from genres you've watched most
-      movie.genre.some(g => 
+  const personalizedMovies = useMemo(() =>
+    filteredMovies.filter((movie) =>
+      movie.genre.some((g) =>
         filteredMovies
-          .filter(m => likedMovies.has(m.id))
-          .flatMap(m => m.genre)
-          .filter(genre => genre === g).length >= 2
+          .filter((m) => likedMovies.has(m.id))
+          .flatMap((m) => m.genre)
+          .filter((genre) => genre === g).length >= 2
       ) ||
-      // Movies with similar ratings to ones you've liked
-      movie.rating >= 8.0 && !likedMovies.has(movie.id)
+      (movie.rating >= 8.0 && !likedMovies.has(movie.id))
     ), [filteredMovies, likedMovies]
   );
 
-  const newReleases = useMemo(() => 
-    filteredMovies.filter(movie => movie.year >= 2023), [filteredMovies]
-  );
+  const newReleases = useMemo(() => filteredMovies.filter((movie) => movie.year >= 2023), [filteredMovies]);
 
-  // Welcome message effect
-  useEffect(() => {
-    if (showWelcome) {
-      const timer = setTimeout(() => {
-        onWelcomeSeen();
-      }, 3000);
-
-      return () => clearTimeout(timer);
-    }
-  }, [showWelcome, onWelcomeSeen]);
-
-  // Movie interaction handlers
   const handleLike = (movie: Movie) => {
-    setLikedMovies(prev => {
+    setLikedMovies((prev) => {
       const newSet = new Set(prev);
       newSet.add(movie.id);
       return newSet;
     });
-    setDislikedMovies(prev => {
+    setDislikedMovies((prev) => {
       const newSet = new Set(prev);
       newSet.delete(movie.id);
       return newSet;
@@ -240,33 +152,40 @@ export default function Home({ wishlist, onWishlist, showWelcome, onWelcomeSeen 
   };
 
   const handleDislike = (movie: Movie) => {
-    setDislikedMovies(prev => {
+    setDislikedMovies((prev) => {
       const newSet = new Set(prev);
       newSet.add(movie.id);
       return newSet;
     });
-    setLikedMovies(prev => {
+    setLikedMovies((prev) => {
       const newSet = new Set(prev);
       newSet.delete(movie.id);
       return newSet;
     });
   };
 
-  // Category filters
   const categories = [
     { id: 'all', name: 'All' },
     { id: 'action', name: 'Action' },
     { id: 'drama', name: 'Drama' },
     { id: 'sci-fi', name: 'Sci-Fi' },
-    { id: 'adventure', name: 'Adventure' }
+    { id: 'adventure', name: 'Adventure' },
   ];
 
-  // Quick stats data
   const quickStats = [
     { icon: Clock, label: 'Watch Time', value: '26 hrs' },
     { icon: Film, label: 'Movies Watched', value: '12' },
-    { icon: Star, label: 'Avg Rating', value: '4.8' }
+    { icon: Star, label: 'Avg Rating', value: '4.8' },
   ];
+
+  useEffect(() => {
+    if (showWelcome) {
+      const timer = setTimeout(() => {
+        onWelcomeSeen();
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [showWelcome, onWelcomeSeen]);
 
   return (
     <div className="min-h-screen bg-gray-900">
@@ -280,7 +199,7 @@ export default function Home({ wishlist, onWishlist, showWelcome, onWelcomeSeen 
       )}
 
       <div className="max-w-[1800px] mx-auto px-4 pb-8">
-        {/* Quick Stats - Moved even closer to navbar */}
+        {/* Quick Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-8 mb-8">
           {quickStats.map((stat, index) => {
             const Icon = stat.icon;
@@ -320,9 +239,14 @@ export default function Home({ wishlist, onWishlist, showWelcome, onWelcomeSeen 
           </div>
         </div>
 
-        {/* Movie Sections */}
-        <div className="space-y-12">
-          {/* Trending Section */}
+        {/* Movie Sections (Infinite Scroll Wrap) */}
+        <InfiniteScroll
+          dataLength={visibleMovies.length}
+          next={fetchMoreMovies}
+          hasMore={hasMore}
+          loader={<p className="text-white text-center">Loading more movies...</p>}
+          endMessage={<p className="text-white text-center">You’ve reached the end!</p>}
+        >
           {trendingMovies.length > 0 && (
             <MovieSection
               title="Trending Now"
@@ -336,7 +260,6 @@ export default function Home({ wishlist, onWishlist, showWelcome, onWelcomeSeen 
             />
           )}
 
-          {/* Personalized Recommendations Section */}
           {personalizedMovies.length > 0 && (
             <MovieSection
               title="Personalized For You"
@@ -350,7 +273,6 @@ export default function Home({ wishlist, onWishlist, showWelcome, onWelcomeSeen 
             />
           )}
 
-          {/* Recommended Section */}
           {recommendedMovies.length > 0 && (
             <MovieSection
               title="Recommended for You"
@@ -364,7 +286,6 @@ export default function Home({ wishlist, onWishlist, showWelcome, onWelcomeSeen 
             />
           )}
 
-          {/* New Releases Section */}
           {newReleases.length > 0 && (
             <MovieSection
               title="New Releases"
@@ -377,7 +298,7 @@ export default function Home({ wishlist, onWishlist, showWelcome, onWelcomeSeen 
               onDislike={handleDislike}
             />
           )}
-        </div>
+        </InfiniteScroll>
       </div>
     </div>
   );
