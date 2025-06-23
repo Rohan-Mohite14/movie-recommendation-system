@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify
 from flask_pymongo import PyMongo
 from werkzeug.security import generate_password_hash, check_password_hash
 import re
-from flask_cors import CORS
+from flask_cors import CORS,cross_origin
 from bson.regex import Regex
 from datetime import datetime
 from bson.objectid import ObjectId
@@ -14,7 +14,7 @@ from hybrid_model import HybridRecommender
 #comment
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 # Replace with your actual Mongo URI
 app.config["MONGO_URI"] = "mongodb+srv://Virendra:MongoFirstCluster@movierec.vgfqr1z.mongodb.net/movieDB?retryWrites=true&w=majority&appName=MovieRec"
@@ -58,6 +58,7 @@ def signup():
     return jsonify({"message": "User registered successfully."}), 201
 
 @app.route('/login', methods=['POST'])
+
 def login():
     data = request.json
     email = data.get('email')

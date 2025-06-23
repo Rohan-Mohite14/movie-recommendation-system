@@ -68,7 +68,12 @@ export default function Home({ wishlist, onWishlist, showWelcome, onWelcomeSeen 
   useEffect(() => {
     const fetchMovies = async () => {
       try {
-        const response = await fetch('http://localhost:5000/movies'); // Replace with your deployed URL if needed
+        const response = await fetch('http://127.0.0.1:5000/movies', {
+          method: "GET",
+          headers: {
+    'Content-Type': 'application/json'
+  }
+        });
         const data = await response.json();
 
         const formatted = data.map((movie: any) => ({
