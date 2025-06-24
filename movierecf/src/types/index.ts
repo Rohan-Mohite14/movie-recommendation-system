@@ -6,6 +6,7 @@ export interface Movie {
   rating: number;
   genre: string[];
   plot: string[];
+
 }
 
 export interface User {

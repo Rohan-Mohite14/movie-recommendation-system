@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import MovieCard from '../components/MovieCard';
 import { Movie } from '../types';
 import InfiniteScroll from 'react-infinite-scroll-component';
-import { TrendingUp, ThumbsUp, Sparkles, Star, Film, Clock, UserCheck } from 'lucide-react';
+import { TrendingUp, Sparkles, Star, Film, Clock } from 'lucide-react';
 
 interface HomeProps {
   wishlist: Movie[];
@@ -24,8 +24,6 @@ interface MovieSectionProps {
   icon: React.ElementType;
   wishlist: Movie[];
   onWishlist: (movie: Movie) => void;
-  onLike?: (movie: Movie) => void;
-  onDislike?: (movie: Movie) => void;
 }
 
 const SectionHeader = ({ icon: Icon, title, subtitle }: SectionHeaderProps) => (
@@ -38,7 +36,7 @@ const SectionHeader = ({ icon: Icon, title, subtitle }: SectionHeaderProps) => (
   </div>
 );
 
-const MovieSection = ({ title, subtitle, movies, icon, wishlist, onWishlist, onLike, onDislike }: MovieSectionProps) => (
+const MovieSection = ({ title, subtitle, movies, icon, wishlist, onWishlist }: MovieSectionProps) => (
   <section className="mb-12">
     <SectionHeader icon={icon} title={title} subtitle={subtitle} />
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
@@ -48,8 +46,7 @@ const MovieSection = ({ title, subtitle, movies, icon, wishlist, onWishlist, onL
           movie={movie}
           isWishlisted={wishlist.some((m) => m.id === movie.id)}
           onWishlist={onWishlist}
-          onLike={onLike}
-          onDislike={onDislike}
+          variant="home"
         />
       ))}
     </div>
@@ -61,19 +58,12 @@ export default function Home({ wishlist, onWishlist, showWelcome, onWelcomeSeen 
   const [allMovies, setAllMovies] = useState<Movie[]>([]);
   const [visibleMovies, setVisibleMovies] = useState<Movie[]>([]);
   const [hasMore, setHasMore] = useState(true);
-  const [likedMovies, setLikedMovies] = useState<Set<string>>(new Set());
-  const [dislikedMovies, setDislikedMovies] = useState<Set<string>>(new Set());
   const ITEMS_PER_PAGE = 30;
 
   useEffect(() => {
     const fetchMovies = async () => {
       try {
-        const response = await fetch('http://127.0.0.1:5000/movies', {
-          method: "GET",
-          headers: {
-    'Content-Type': 'application/json'
-  }
-        });
+        const response = await fetch('http://127.0.0.1:5000/movies');
         const data = await response.json();
 
         const formatted = data.map((movie: any) => ({
@@ -118,56 +108,7 @@ export default function Home({ wishlist, onWishlist, showWelcome, onWelcomeSeen 
 
   const trendingMovies = useMemo(() => filteredMovies.filter((movie) => movie.rating >= 8.5), [filteredMovies]);
 
-  const recommendedMovies = useMemo(() =>
-    filteredMovies.filter((movie) =>
-      likedMovies.has(movie.id) ||
-      movie.genre.some((g) =>
-        filteredMovies
-          .filter((m) => likedMovies.has(m.id))
-          .some((m) => m.genre.includes(g))
-      )
-    ), [filteredMovies, likedMovies]
-  );
-
-  const personalizedMovies = useMemo(() =>
-    filteredMovies.filter((movie) =>
-      movie.genre.some((g) =>
-        filteredMovies
-          .filter((m) => likedMovies.has(m.id))
-          .flatMap((m) => m.genre)
-          .filter((genre) => genre === g).length >= 2
-      ) ||
-      (movie.rating >= 8.0 && !likedMovies.has(movie.id))
-    ), [filteredMovies, likedMovies]
-  );
-
   const newReleases = useMemo(() => filteredMovies.filter((movie) => movie.year >= 2023), [filteredMovies]);
-
-  const handleLike = (movie: Movie) => {
-    setLikedMovies((prev) => {
-      const newSet = new Set(prev);
-      newSet.add(movie.id);
-      return newSet;
-    });
-    setDislikedMovies((prev) => {
-      const newSet = new Set(prev);
-      newSet.delete(movie.id);
-      return newSet;
-    });
-  };
-
-  const handleDislike = (movie: Movie) => {
-    setDislikedMovies((prev) => {
-      const newSet = new Set(prev);
-      newSet.add(movie.id);
-      return newSet;
-    });
-    setLikedMovies((prev) => {
-      const newSet = new Set(prev);
-      newSet.delete(movie.id);
-      return newSet;
-    });
-  };
 
   const categories = [
     { id: 'all', name: 'All' },
@@ -244,7 +185,7 @@ export default function Home({ wishlist, onWishlist, showWelcome, onWelcomeSeen 
           </div>
         </div>
 
-        {/* Movie Sections (Infinite Scroll Wrap) */}
+        {/* Movie Sections */}
         <InfiniteScroll
           dataLength={visibleMovies.length}
           next={fetchMoreMovies}
@@ -260,34 +201,6 @@ export default function Home({ wishlist, onWishlist, showWelcome, onWelcomeSeen 
               icon={TrendingUp}
               wishlist={wishlist}
               onWishlist={onWishlist}
-              onLike={handleLike}
-              onDislike={handleDislike}
-            />
-          )}
-
-          {personalizedMovies.length > 0 && (
-            <MovieSection
-              title="Personalized For You"
-              subtitle="Curated based on your taste and preferences"
-              movies={personalizedMovies}
-              icon={UserCheck}
-              wishlist={wishlist}
-              onWishlist={onWishlist}
-              onLike={handleLike}
-              onDislike={handleDislike}
-            />
-          )}
-
-          {recommendedMovies.length > 0 && (
-            <MovieSection
-              title="Recommended for You"
-              subtitle="Based on your watching history"
-              movies={recommendedMovies}
-              icon={ThumbsUp}
-              wishlist={wishlist}
-              onWishlist={onWishlist}
-              onLike={handleLike}
-              onDislike={handleDislike}
             />
           )}
 
@@ -299,8 +212,6 @@ export default function Home({ wishlist, onWishlist, showWelcome, onWelcomeSeen 
               icon={Sparkles}
               wishlist={wishlist}
               onWishlist={onWishlist}
-              onLike={handleLike}
-              onDislike={handleDislike}
             />
           )}
         </InfiniteScroll>

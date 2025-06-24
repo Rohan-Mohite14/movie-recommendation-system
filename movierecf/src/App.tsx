@@ -19,6 +19,8 @@ function App() {
   const [watchedMovies, setWatchedMovies] = useState<Movie[]>([]);
   const [hasSeenWelcome, setHasSeenWelcome] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+
 
   // Handle navigation to home and scroll to top
   const handleHomeNavigation = () => {
@@ -37,23 +39,81 @@ function App() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleAuth = () => {
-    setIsAuthenticated(true);
-    setShowWelcome(false);
-    setHasSeenWelcome(false);
-  };
+  const handleAuth = async (user: { id: string }) => {
+  setIsAuthenticated(true);
+  setShowWelcome(false);
+  setHasSeenWelcome(false);
+  setUserId(user.id);
+
+  try {
+    const response = await fetch(`http://127.0.0.1:5000/api/watchlist/${user.id}`);
+    const data = await response.json();
+    if (response.ok) {
+      // Map server movie objects to your frontend Movie type
+      const formattedMovies: Movie[] = data.map((m: any) => ({
+        id: m.movieId, // backend returns movieId
+        title: m.title,
+        genre: m.genres, // assuming it's an array of genre strings
+        plot: '', // placeholder if not returned by backend
+        poster: '', // placeholder
+        rating: 0,    // placeholder
+        year: ''      // placeholder
+      }));
+      setWishlist(formattedMovies);
+    } else {
+      console.error("Failed to fetch watchlist:", data.error);
+    }
+  } catch (err) {
+    console.error("Error fetching watchlist:", err);
+  }
+};
+
+
 
   const handleGetStarted = () => {
     setShowWelcome(false);
   };
 
-  const handleWishlist = (movie: Movie) => {
-    setWishlist((prev) =>
-      prev.some((m) => m.id === movie.id)
-        ? prev.filter((m) => m.id !== movie.id)
-        : [...prev, movie]
-    );
-  };
+  const handleWishlist = async (movie: Movie) => {
+  if (!userId) {
+    console.error("User ID not available.");
+    return;
+  }
+
+  const isInWishlist = wishlist.some((m) => m.id === movie.id);
+
+  // Optimistically update the UI
+  setWishlist((prev) =>
+    isInWishlist ? prev.filter((m) => m.id !== movie.id) : [...prev, movie]
+  );
+
+  const url = 'http://127.0.0.1:5000/api/watchlist';
+  const payload = JSON.stringify({
+    user_id: userId,
+    movie_id: movie.id
+  });
+
+  try {
+    const response = await fetch(url, {
+      method: isInWishlist ? 'DELETE' : 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: payload
+    });
+
+    const result = await response.json();
+    if (!response.ok) {
+      console.error(`Failed to ${isInWishlist ? 'remove from' : 'add to'} watchlist:`, result.error);
+    } else {
+      console.log(`Watchlist ${isInWishlist ? 'removal' : 'update'} success:`, result.message);
+    }
+  } catch (error) {
+    console.error("API error:", error);
+  }
+};
+
+
 
   const handleWatched = (movie: Movie) => {
     setWatchedMovies((prev) =>
@@ -115,7 +175,7 @@ function App() {
           <Wishlist wishlist={wishlist} onWishlist={handleWishlist} />
         )}
         {currentPage === 'watched' && (
-          <Watched watched={watchedMovies} onWishlist={handleWishlist} onWatched={handleWatched} />
+          <Watched watched={watchedMovies} onWishlist={handleWishlist} />
         )}
         {currentPage === 'home' && (
           <Home 

@@ -55,6 +55,7 @@ export default function Wishlist({ wishlist, onWishlist }: WishlistProps) {
                 movie={movie}
                 isWishlisted={true}
                 onWishlist={onWishlist}
+                variant="wishlist" // 👈 Important
               />
             ))}
           </div>

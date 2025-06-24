@@ -3,8 +3,9 @@ import { Mail, Lock, User, Phone, AlertCircle, Eye, EyeOff } from 'lucide-react'
 import axios from 'axios';
 
 interface AuthProps {
-  onAuth: () => void;
+  onAuth: (user: { id: string }) => void;
 }
+
 
 interface ValidationErrors {
   email?: string;
@@ -47,21 +48,24 @@ export default function Auth({ onAuth }: AuthProps) {
       return;
     }
 
-    try {
-      const endpoint = isLogin ? '/login' : '/signup';
-      const payload = isLogin
-        ? { email, password }
-        : { name, email, phone, password };
+   try {
+  const endpoint = isLogin ? '/login' : '/signup';
+  const payload = isLogin
+    ? { email, password }
+    : { name, email, phone, password };
 
-      const response = await axios.post(`http://127.0.0.1:5000${endpoint}`, payload);
+  const response = await axios.post(`http://127.0.0.1:5000${endpoint}`, payload);
 
-      setMessage(response.data.message);
-      setErrors({});
-      onAuth(); // or redirect / store token
-    } catch (err: any) {
-      setMessage(err.response?.data?.error || 'An error occurred.');
-    }
-  };
+  setMessage(response.data.message);
+  setErrors({});
+
+  // ✅ Extract the id and pass it to parent
+  const userId = response.data.user.id;
+  onAuth({ id: userId });
+} catch (err: any) {
+  setMessage(err.response?.data?.error || 'An error occurred.');
+}}
+
 
   return (
     <div className="min-h-screen bg-gray-900 flex items-center justify-center px-4">
@@ -189,4 +193,4 @@ export default function Auth({ onAuth }: AuthProps) {
       </div>
     </div>
   );
-}
+  }

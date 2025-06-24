@@ -35,7 +35,7 @@ def signup():
     if not re.match(r"^[\w\.-]+@(gmail|hotmail|yahoo)\.com$", email):
         return jsonify({"error": "Invalid email. Only gmail, hotmail, and yahoo allowed."}), 400
 
-        # Password validation: min 9 chars, 1 uppercase, 1 lowercase, 1 number
+    # Password validation: min 9 chars, 1 uppercase, 1 lowercase, 1 number, 1 special char
     if not re.match(r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{9,}$", password):
         return jsonify({"error": "Password must be at least 9 characters with 1 uppercase, 1 lowercase, 1 number, and 1 special character."}), 400
 
@@ -54,11 +54,20 @@ def signup():
         "phone": phone,
         "password": hashed_pw
     }
-    mongo.db.users.insert_one(user)
-    return jsonify({"message": "User registered successfully."}), 201
+    result = mongo.db.users.insert_one(user)
+
+    return jsonify({
+        "message": "User registered successfully.",
+        "user": {
+            "id": str(result.inserted_id),
+            "name": name,
+            "email": email,
+            "phone": phone
+        }
+    }), 201
+
 
 @app.route('/login', methods=['POST'])
-
 def login():
     data = request.json
     email = data.get('email')
@@ -74,11 +83,13 @@ def login():
     return jsonify({
         "message": "Login successful.",
         "user": {
+            "id": str(user['_id']),
             "name": user['name'],
             "email": user['email'],
             "phone": user['phone']
         }
     }), 200
+
 
 
 
@@ -88,7 +99,7 @@ def get_movies():
     movies = []
     for movie in movie_collection.find():
         movies.append({
-            "id": str(movie["_id"]),
+            "id": str(movie["movieId"]),
             "title": movie["title"],
             "plot": movie.get("plot", "No plot available."),
             "genre": movie.get("genres", []),
@@ -153,6 +164,13 @@ def get_watchlist(user_id):
         return jsonify(error="User not found"), 404
 
     movie_ids = user.get("watchlist", [])
+
+    # Convert to int if movieId in movies collection is stored as number
+    try:
+        movie_ids = [int(mid) for mid in movie_ids if mid.isdigit()]
+    except ValueError:
+        return jsonify(error="Invalid movie ID format in watchlist"), 400
+
     movies = list(
         mongo.db.movies.find(
             {"movieId": {"$in": movie_ids}},
@@ -162,20 +180,19 @@ def get_watchlist(user_id):
     return jsonify(movies), 200
 
 
-
 @app.route('/api/watchlist', methods=['DELETE'])
 def remove_from_watchlist():
     data = request.get_json()
     user_id = data.get("user_id")
-    movie_id = data.get("movie_id")
+    movie_id = str(data.get("movie_id"))  # Force string
     session_id = data.get("session_id") or f"{user_id}_sess_{int(time.time())}"
 
     if not all([user_id, movie_id]):
         return jsonify(error="user_id and movie_id are required"), 400
 
-    mongo.db.users.update_one(
+    result = mongo.db.users.update_one(
         {"_id": ObjectId(user_id)},
-        {"$pull": {"watchlist": movie_id}}
+        {"$pull": {"watchlist": movie_id}}  # Now matches string values in DB
     )
 
     mongo.db.interactions.insert_one({
@@ -188,7 +205,11 @@ def remove_from_watchlist():
         "action": "watchlist_remove"
     })
 
+    if result.modified_count == 0:
+        return jsonify(message="Movie not found in watchlist"), 404
+
     return jsonify(message="Movie removed from watchlist"), 200
+
 
 
 
