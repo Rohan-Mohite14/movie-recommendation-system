@@ -6,10 +6,13 @@ import { TrendingUp, Sparkles, Star, Film, Clock } from 'lucide-react';
 
 interface HomeProps {
   wishlist: Movie[];
+  watched: Movie[]; // ✅ ADD THIS
   onWishlist: (movie: Movie) => void;
+  onWatched?: (movie: Movie, rating: number) => void;
   showWelcome: boolean;
   onWelcomeSeen: () => void;
 }
+
 
 interface SectionHeaderProps {
   icon: React.ElementType;
@@ -23,8 +26,11 @@ interface MovieSectionProps {
   movies: Movie[];
   icon: React.ElementType;
   wishlist: Movie[];
+  watched: Movie[]; // ✅ ADD THIS LINE
   onWishlist: (movie: Movie) => void;
+  onWatched?: (movie: Movie, rating: number) => void;
 }
+
 
 const SectionHeader = ({ icon: Icon, title, subtitle }: SectionHeaderProps) => (
   <div className="mb-8">
@@ -36,24 +42,39 @@ const SectionHeader = ({ icon: Icon, title, subtitle }: SectionHeaderProps) => (
   </div>
 );
 
-const MovieSection = ({ title, subtitle, movies, icon, wishlist, onWishlist }: MovieSectionProps) => (
+const MovieSection = ({
+  title,
+  subtitle,
+  movies,
+  icon,
+  wishlist,
+  watched, // ✅ ADD THIS
+  onWishlist,
+  onWatched,
+}: MovieSectionProps) => (
+
   <section className="mb-12">
     <SectionHeader icon={icon} title={title} subtitle={subtitle} />
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
       {movies.map((movie) => (
         <MovieCard
-          key={movie.id}
-          movie={movie}
-          isWishlisted={wishlist.some((m) => m.id === movie.id)}
-          onWishlist={onWishlist}
-          variant="home"
-        />
+        key={movie.id}
+        movie={movie}
+        isWishlisted={wishlist.some((m) => m.id === movie.id)}
+        isWatched={watched.some((m) => m.id === movie.id)} // ✅
+
+        onWishlist={onWishlist}
+        onWatched={onWatched}
+        variant="home"
+      />
+
       ))}
     </div>
   </section>
 );
 
-export default function Home({ wishlist, onWishlist, showWelcome, onWelcomeSeen }: HomeProps) {
+
+export default function Home({ wishlist,watched, onWishlist, showWelcome, onWelcomeSeen,onWatched }: HomeProps) {
   const [activeCategory, setActiveCategory] = useState('all');
   const [allMovies, setAllMovies] = useState<Movie[]>([]);
   const [visibleMovies, setVisibleMovies] = useState<Movie[]>([]);
@@ -200,19 +221,25 @@ export default function Home({ wishlist, onWishlist, showWelcome, onWelcomeSeen 
               movies={trendingMovies}
               icon={TrendingUp}
               wishlist={wishlist}
+              watched={watched} // ✅ ADD THIS
               onWishlist={onWishlist}
+              onWatched={onWatched}
             />
+
           )}
 
           {newReleases.length > 0 && (
             <MovieSection
-              title="New Releases"
-              subtitle="Fresh from the cinema"
-              movies={newReleases}
-              icon={Sparkles}
-              wishlist={wishlist}
-              onWishlist={onWishlist}
-            />
+            title="New Releases"
+            subtitle="Fresh from the cinema"
+            movies={newReleases}
+            icon={Sparkles}
+            wishlist={wishlist}
+            watched={watched} // ✅ ADD THIS
+            onWishlist={onWishlist}
+            onWatched={onWatched}
+          />
+
           )}
         </InfiniteScroll>
       </div>

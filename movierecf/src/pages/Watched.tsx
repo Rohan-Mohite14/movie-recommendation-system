@@ -6,14 +6,14 @@ import { PlayCircle } from 'lucide-react';
 interface WatchedProps {
   watched: Movie[];
   onWishlist: (movie: Movie) => void;
+  onWatched: (movie: Movie, rating: number) => void;
 }
 
 interface MoviesByCategory {
   [key: string]: Movie[];
 }
 
-export default function Watched({ watched, onWishlist }: WatchedProps) {
-  // Group movies by category
+export default function Watched({ watched, onWishlist, onWatched }: WatchedProps) {
   const moviesByCategory = watched.reduce((acc: MoviesByCategory, movie) => {
     movie.genre.forEach(genre => {
       if (!acc[genre]) {
@@ -39,7 +39,7 @@ export default function Watched({ watched, onWishlist }: WatchedProps) {
   return (
     <div className="max-w-7xl mx-auto px-4 pt-20 pb-8">
       <h2 className="text-2xl font-bold text-white mb-8">My Watched Movies</h2>
-      
+
       {Object.entries(moviesByCategory).map(([category, movies]) => (
         <div key={category} className="mb-8">
           <h3 className="text-xl font-semibold text-white mb-4 flex items-center">
@@ -55,6 +55,8 @@ export default function Watched({ watched, onWishlist }: WatchedProps) {
                 movie={movie}
                 isWishlisted={false}
                 onWishlist={onWishlist}
+                onWatched={onWatched}      // ✅ enable deletion
+                variant="watched"           // ✅ tells MovieCard to show "Remove from Watched"
               />
             ))}
           </div>

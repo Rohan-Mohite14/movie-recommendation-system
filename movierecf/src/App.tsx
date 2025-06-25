@@ -46,28 +46,42 @@ function App() {
   setUserId(user.id);
 
   try {
-    const response = await fetch(`http://127.0.0.1:5000/api/watchlist/${user.id}`);
-    const data = await response.json();
-    if (response.ok) {
-      // Map server movie objects to your frontend Movie type
-      const formattedMovies: Movie[] = data.map((m: any) => ({
-        id: m.movieId, // backend returns movieId
+    // Fetch Watchlist
+    const watchlistRes = await fetch(`http://127.0.0.1:5000/api/watchlist/${user.id}`);
+    const watchlistData = await watchlistRes.json();
+    if (watchlistRes.ok) {
+      const formattedWatchlist: Movie[] = watchlistData.map((m: any) => ({
+        id: m.movieId,
         title: m.title,
-        genre: m.genres, // assuming it's an array of genre strings
-        plot: '', // placeholder if not returned by backend
-        poster: '', // placeholder
-        rating: 0,    // placeholder
-        year: ''      // placeholder
+        genre: m.genres,
+        plot: '',
+        poster: '',
+        rating: 0,
+        year: ''
       }));
-      setWishlist(formattedMovies);
-    } else {
-      console.error("Failed to fetch watchlist:", data.error);
+      setWishlist(formattedWatchlist);
     }
+
+    // 🔥 Fetch Watched List
+    const watchedRes = await fetch(`http://127.0.0.1:5000/api/watched/get/${user.id}`);
+    const watchedData = await watchedRes.json();
+    if (watchedRes.ok) {
+      const formattedWatched: Movie[] = watchedData.map((m: any) => ({
+        id: m.movieId,
+        title: m.title,
+        genre: m.genres || [],
+        plot: [''],
+        poster: '',
+        rating: 0,
+        year: 2024
+      }));
+      setWatchedMovies(formattedWatched);
+    }
+
   } catch (err) {
-    console.error("Error fetching watchlist:", err);
+    console.error("Error fetching user data:", err);
   }
 };
-
 
 
   const handleGetStarted = () => {
@@ -115,13 +129,70 @@ function App() {
 
 
 
-  const handleWatched = (movie: Movie) => {
-    setWatchedMovies((prev) =>
-      prev.some((m) => m.id === movie.id)
-        ? prev.filter((m) => m.id !== movie.id)
-        : [...prev, movie]
-    );
+  const handleWatched = async (movie: Movie, rating: number) => {
+  if (!userId) {
+    console.error("User ID not available.");
+    return;
+  }
+
+  const sessionId = `${userId}_sess_${Date.now()}`;
+
+  if (rating === 0) {
+    // Remove from watched
+    try {
+      const response = await fetch('http://127.0.0.1:5000/remove_from_watched', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: userId,
+          movie_id: movie.id,
+          session_id: sessionId
+        })
+      });
+
+      const result = await response.json();
+      if (response.ok) {
+        console.log("❌ Removed from watched:", result.message);
+        setWatchedMovies((prev) => prev.filter((m) => m.id !== movie.id));
+      } else {
+        console.error("Failed to remove from watched:", result.message);
+      }
+    } catch (error) {
+      console.error("API error on watched removal:", error);
+    }
+    return;
+  }
+
+  // Add to watched
+  const payload = {
+    user_id: userId,
+    movie_id: movie.id,
+    rating: rating,
+    session_id: sessionId
   };
+
+  try {
+    const response = await fetch('http://127.0.0.1:5000/api/watched/add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const result = await response.json();
+    if (response.ok) {
+      console.log("✅ Marked as watched:", result.message);
+      setWatchedMovies((prev) =>
+        prev.some((m) => m.id === movie.id) ? prev : [...prev, movie]
+      );
+    } else {
+      console.error("Failed to mark as watched:", result.error);
+    }
+  } catch (error) {
+    console.error("API error:", error);
+  }
+};
+
+
 
   const handleSearchToggle = () => {
     setShowSearch(!showSearch);
@@ -175,12 +246,15 @@ function App() {
           <Wishlist wishlist={wishlist} onWishlist={handleWishlist} />
         )}
         {currentPage === 'watched' && (
-          <Watched watched={watchedMovies} onWishlist={handleWishlist} />
+          <Watched watched={watchedMovies} onWishlist={handleWishlist} onWatched={handleWatched} />
         )}
+
         {currentPage === 'home' && (
           <Home 
+            watched={watchedMovies} // ✅ Pass this
             wishlist={wishlist} 
-            onWishlist={handleWishlist} 
+            onWishlist={handleWishlist}
+            onWatched={handleWatched} 
             showWelcome={!hasSeenWelcome} 
             onWelcomeSeen={() => setHasSeenWelcome(true)} 
           />

@@ -1,30 +1,32 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Star } from 'lucide-react';
 import { Movie } from '../types';
 
 interface MovieCardProps {
   movie: Movie;
   isWishlisted: boolean;
+  isWatched?: boolean; // <-- new prop
   onWishlist: (movie: Movie) => void;
-  onWatched?: (movie: Movie) => void;
-  variant?: 'home' | 'wishlist';
+  onWatched?: (movie: Movie, rating: number) => void;
+ variant?: 'home' | 'wishlist' | 'watched';
+
 }
+
 
 export default function MovieCard({
   movie,
   isWishlisted,
+  isWatched, // ✅ include this
   onWishlist,
   onWatched,
-  variant = 'home', // default to 'home' if not specified
+  variant = 'home',
 }: MovieCardProps) {
+
+  const [selectedRating, setSelectedRating] = useState<number>(0);
+
   return (
     <div className="bg-gray-800 rounded-lg overflow-hidden shadow-lg transition-transform hover:scale-105">
-      {/* Movie Poster Image */}
-      <img
-        src={movie.poster}
-        alt={movie.title}
-        className="w-full h-64 object-cover"
-      />
+      <img src={movie.poster} alt={movie.title} className="w-full h-64 object-cover" />
       <div className="p-4">
         <div className="flex justify-between items-start">
           <h3 className="text-lg font-semibold text-white">{movie.title}</h3>
@@ -47,37 +49,61 @@ export default function MovieCard({
           ))}
         </div>
 
-        {/* Expandable Plot Section */}
         <details className="mt-2 text-sm text-gray-300">
           <summary className="cursor-pointer text-blue-400">View Plot</summary>
           <p className="mt-1">{movie.plot}</p>
         </details>
 
-        {/* Buttons Section */}
+        {variant !== 'wishlist' && (
+          <div className="flex items-center mt-3 space-x-1">
+            {[1, 2, 3, 4, 5].map((val) => (
+              <Star
+                key={val}
+                size={20}
+                className={`cursor-pointer ${
+                  val <= selectedRating ? 'text-yellow-400' : 'text-gray-500'
+                }`}
+                onClick={() => setSelectedRating(val)}
+              />
+            ))}
+            <span className="text-sm text-gray-400 ml-2">{selectedRating || 'Rate'}</span>
+          </div>
+        )}
+
         <div className="mt-4 flex justify-between space-x-2">
           {variant === 'wishlist' ? (
-            <button
-              className="bg-red-600 hover:bg-red-500 text-white px-3 py-1 rounded-full text-sm w-full"
-              onClick={() => onWishlist(movie)}
-            >
-              Remove from Wishlist
-            </button>
-          ) : (
-            <>
               <button
-                className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded-full text-sm w-1/2"
+                className="bg-red-600 hover:bg-red-500 text-white px-3 py-1 rounded-full text-sm w-full"
                 onClick={() => onWishlist(movie)}
               >
-                {isWishlisted ? 'Remove from Watchlist' : 'Add to Watchlist'}
+                Remove from Wishlist
               </button>
+            ) : variant === 'watched' ? (
               <button
-                className="bg-green-600 hover:bg-green-500 text-white px-3 py-1 rounded-full text-sm w-1/2"
-                onClick={() => onWatched?.(movie)}
+                className="bg-red-600 hover:bg-red-500 text-white px-3 py-1 rounded-full text-sm w-full"
+                onClick={() => onWatched?.(movie, 0)} // Send 0 to indicate removal
               >
-                Mark as Watched
+                Remove from Watched
               </button>
-            </>
-          )}
+            ) : (
+              <>
+                <button
+                  className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded-full text-sm w-1/2"
+                  onClick={() => onWishlist(movie)}
+                >
+                  {isWishlisted ? 'Remove from Watchlist' : 'Add to Watchlist'}
+                </button>
+                {!isWatched && (
+                  <button
+                    className="bg-green-600 hover:bg-green-500 text-white px-3 py-1 rounded-full text-sm w-1/2"
+                    onClick={() => onWatched?.(movie, selectedRating)}
+                  >
+                    Mark as Watched
+                  </button>
+                )}
+              </>
+            )}
+
         </div>
       </div>
     </div>

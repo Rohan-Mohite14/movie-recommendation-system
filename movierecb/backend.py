@@ -254,53 +254,71 @@ def add_to_watched():
 
 
 
-@app.route('/api/rate', methods=['POST'])
-def rate_movie():
-    data = request.get_json()
-    user_id = data.get("user_id")
-    movie_id = data.get("movie_id")
-    rating = data.get("rating")
-    session_id = data.get("session_id") or f"{user_id}_sess_{int(time.time())}"
+# @app.route('/api/rate', methods=['POST'])
+# def rate_movie():
+#     data = request.get_json()
+#     user_id = data.get("user_id")
+#     movie_id = data.get("movie_id")
+#     rating = data.get("rating")
+#     session_id = data.get("session_id") or f"{user_id}_sess_{int(time.time())}"
 
-    if not all([user_id, movie_id, rating]):
-        return jsonify({"error": "user_id, movie_id, and rating required"}), 400
+#     if not all([user_id, movie_id, rating]):
+#         return jsonify({"error": "user_id, movie_id, and rating required"}), 400
 
-    try:
-        rating_val = float(rating)
-        assert 1.0 <= rating_val <= 5.0
-    except:
-        return jsonify({"error": "Rating must be between 1 and 5"}), 400
+#     try:
+#         rating_val = float(rating)
+#         assert 1.0 <= rating_val <= 5.0
+#     except:
+#         return jsonify({"error": "Rating must be between 1 and 5"}), 400
 
-    mongo.db.users.update_one(
-        {"_id": ObjectId(user_id)},
-        {
-            "$addToSet": {"watched": movie_id},
-            "$set": {f"ratings.{movie_id}": rating_val}
-        }
-    )
+#     mongo.db.users.update_one(
+#         {"_id": ObjectId(user_id)},
+#         {
+#             "$addToSet": {"watched": movie_id},
+#             "$set": {f"ratings.{movie_id}": rating_val}
+#         }
+#     )
 
-    mongo.db.interactions.insert_one({
-        "user_id": ObjectId(user_id),
-        "movieId": movie_id,
-        "rating": rating_val,
-        "watched": True,
-        "timestamp": datetime.utcnow(),
-        "session_id": session_id,
-        "action": "rate+watch"
-    })
+#     mongo.db.interactions.insert_one({
+#         "user_id": ObjectId(user_id),
+#         "movieId": movie_id,
+#         "rating": rating_val,
+#         "watched": True,
+#         "timestamp": datetime.utcnow(),
+#         "session_id": session_id,
+#         "action": "rate+watch"
+#     })
 
-    return jsonify({"message": "Movie rated and added to watched list"}), 200
+#     return jsonify({"message": "Movie rated and added to watched list"}), 200
 
 
 
 @app.route('/api/watched/get/<user_id>', methods=['GET'])
 def get_watched(user_id):
-    user = mongo.db.users.find_one({"user_id": int(user_id)})
-    if not user:
-        return jsonify({"watched": []}), 200  # safe default
+    try:
+        user = mongo.db.users.find_one({"_id": ObjectId(user_id)})
+    except Exception:
+        return jsonify({"error": "Invalid user ID format"}), 400
 
-    watched = user.get("watched", [])
-    return jsonify({"watched": watched}), 200
+    if not user:
+        return jsonify({"watched": []}), 200
+
+    watched_ids = user.get("watched", [])
+
+    try:
+        watched_ids = [int(mid) for mid in watched_ids if isinstance(mid, str) and mid.isdigit()]
+    except ValueError:
+        return jsonify({"error": "Invalid movie ID format in watched list"}), 400
+
+    movies = list(
+        mongo.db.movies.find(
+            {"movieId": {"$in": watched_ids}},
+            {"_id": 0, "movieId": 1, "title": 1, "genres": 1}
+        )
+    )
+
+    return jsonify(movies), 200
+
 
 
 
@@ -309,40 +327,54 @@ def get_watched(user_id):
 def remove_from_watched():
     data = request.get_json()
     user_id = data.get('user_id')
-    movie_id = data.get('movie_id')
+    movie_id = str(data.get('movie_id'))  
     session_id = data.get('session_id') or f"{user_id}_sess_{int(time.time())}"
 
     if not user_id or not movie_id:
         return jsonify({'message': 'user_id and movie_id are required'}), 400
 
-    user = mongo.db.users.find_one_and_update(
-        {"user_id": int(user_id)},
-        {"$pull": {"watched": movie_id}}
-    )
+    try:
+        user_obj_id = ObjectId(user_id)
+    except Exception as e:
+        return jsonify({'message': f'Invalid user ID format: {str(e)}'}), 400
 
-    if not user or movie_id not in user.get("watched", []):
+    user = mongo.db.users.find_one({"_id": user_obj_id})
+    if not user:
+        return jsonify({'message': 'User not found'}), 404
+
+    if movie_id not in user.get("watched", []):
         return jsonify({'message': 'Movie not found in watched list'}), 404
 
-    mongo.db.interactions.insert_one({
-        "user_id": int(user_id),
-        "movieId": int(movie_id),
-        "rating": None,
-        "watched": False,
-        "timestamp": int(time.time() * 1000),
-        "session_id": session_id,
-        "action": "unwatch"
+    # Step 1: Remove movie from watched list and ratings
+    mongo.db.users.update_one(
+        {"_id": user_obj_id},
+        {
+            "$pull": {"watched": movie_id},
+            "$unset": {f"ratings.{movie_id}": ""}  # Remove the rating
+        }
+    )
+
+    # Step 2: Delete any prior rate+watch interactions for this movie
+    mongo.db.interactions.delete_many({
+        "user_id": user_obj_id,
+        "movieId": movie_id,
+        "action": "rate+watch"
     })
 
-    return jsonify({'message': 'Movie removed from watched list and interaction recorded'}), 200
+    # Step 3: Log the unwatch interaction
+    # mongo.db.interactions.insert_one({
+    #     "user_id": user_obj_id,
+    #     "movieId": movie_id,
+    #     "rating": None,
+    #     "watched": False,
+    #     "timestamp": int(time.time() * 1000),
+    #     "session_id": session_id,
+    #     "action": "unwatch"
+    # })
+
+    return jsonify({'message': 'Movie removed from watched list, rating deleted, and interaction recorded'}), 200
 
 
-
-
-# app = Flask(__name__)
-# app.config["MONGO_URI"] = "mongodb://localhost:27017/movieDB"
-# mongo = PyMongo(app)
-
-# Load all movies once into memory (for small datasets)
 all_movies = list(mongo.db.movies.find().limit(5000))
 
 
@@ -435,181 +467,3 @@ def home_recommendations():
 if __name__ == '__main__':
     app.run(debug=True)
 
-
-
-# @app.route('/api/rate', methods=['POST'])
-# def rate_movie():
-#     data = request.json
-#     user_id    = data.get("user_id")
-#     movie_id   = data.get("movie_id")
-#     rating     = data.get("rating")
-#     session_id = data.get("session_id")
-#
-#     # basic validation
-#     if not all([user_id, movie_id, rating, session_id]):
-#         return jsonify(error="user_id, movie_id, rating, session_id required"), 400
-#     try:
-#         rating_val = float(rating)
-#         assert 1.0 <= rating_val <= 5.0
-#     except (ValueError, AssertionError):
-#         return jsonify(error="rating must be 1‑5"), 400
-#
-#     # 1) store/update rating in user doc (dict: movieId -> rating)
-#     mongo.db.users.update_one(
-#         {"_id": ObjectId(user_id)},
-#         { "$set": { f"ratings.{movie_id}": rating_val } }
-#     )
-#
-#     # 2) log interaction row
-#     mongo.db.interactions.insert_one({
-#         "user_id":    ObjectId(user_id),
-#         "movieId":    movie_id,
-#         "rating":     rating_val,
-#         "watched":    True,
-#         "timestamp":  datetime.utcnow(),
-#         "session_id": session_id,
-#         "action":     "rate"
-#     })
-#
-#     return jsonify(message="Rating saved"), 200
-#
-#
-# @app.route('/api/watched/add', methods=['POST'])
-# def add_to_watched():
-#     data = request.get_json()
-#     user_id = data.get("user_id")
-#     movie_id = data.get("movie_id")
-#
-#     if not user_id or not movie_id:
-#         return jsonify({"error": "user_id and movie_id are required"}), 400
-#
-#     user = mongo.db.users.find_one({"_id": ObjectId(user_id)})
-#     if not user:
-#         return jsonify({"error": "User not found"}), 404
-#
-#     if movie_id in user.get("watched", []):
-#         return jsonify({"message": "Movie already in watched list"}), 200
-#
-#     mongo.db.interactions.update_one(
-#         {"_id": ObjectId(user_id)},
-#         {"$addToSet": {"watched": movie_id}}
-#     )
-#
-#     # Update interactions collection (optional but recommended for recommendation)
-#     mongo.db.interactions.insert_one({
-#         "user_id": ObjectId(user_id),
-#         "movieId": (movie_id),
-#         "watched": True,
-#         "timestamp": datetime.now(),
-#         "session_id": f"{user_id}_sess_{int(time.time())}",
-#         "action": "watched"
-#     })
-#
-#     return jsonify({"message": "Movie added to watched list"}), 201
-#
-#
-#
-# @app.route('/api/watched/get/<int:user_id>', methods=['GET'])
-# def get_watched(user_id):
-#     user = mongo.db.users.find_one({"user_id": user_id})
-#     if not user:
-#         return jsonify({"watched": []}), 200  # return empty list instead of error
-#
-#     watched = user.get("watched", [])
-#     return jsonify({"watched": watched}), 200
-#
-#
-#
-#
-# @app.route('/remove_from_watched', methods=['POST'])
-# def remove_from_watched():
-#     data = request.get_json()
-#     user_id = data.get('user_id')
-#     movie_id = data.get('movie_id')
-#     session_id = data.get('session_id', f"{user_id}_sess_0")
-#
-#     if not user_id or not movie_id:
-#         return jsonify({'message': 'user_id and movie_id are required'}), 400
-#
-#     user = mongo.db.users.find_one_and_update(
-#         {"user_id": user_id},
-#         {"$pull": {"watched": movie_id}}
-#     )
-#
-#     if not user or movie_id not in user.get("watched", []):
-#         return jsonify({'message': 'Movie not found in watched list'}), 404
-#
-#     # Add unwatch interaction
-#     mongo.db.interactions.insert_one({
-#         "user_id": int(user_id),
-#         "movieId": int(movie_id),
-#         "rating": None,
-#         "watched": False,
-#         "timestamp": int(time.time() * 1000),
-#         "session_id": session_id,
-#         "action": "unwatch"
-#     })
-#
-#     return jsonify({'message': 'Movie removed from watched list and interaction recorded'}), 200
-
-
-
-
-
-
-
-
-
-
-
-# @app.route('/api/watchlist', methods=['POST'])
-# def add_to_watchlist():
-#     data = request.json
-#     user_id  = data.get("user_id")
-#     movie_id = data.get("movie_id")
-#
-#     if not all([user_id, movie_id]):
-#         return jsonify(error="user_id and movie_id required"), 400
-#
-#     mongo.db.users.update_one(
-#         {"_id": ObjectId(user_id)},
-#         {"$addToSet": {"watchlist": movie_id}}
-#     )
-#     return jsonify(message="Added to watchlist"), 200
-#
-#
-#
-# @app.route('/api/watchlist/<user_id>')
-# def get_watchlist(user_id):
-#     user = mongo.db.users.find_one(
-#         {"_id": ObjectId(user_id)},
-#         {"_id": 0, "watchlist": 1}
-#     )
-#     if not user:
-#         return jsonify(error="User not found"), 404
-#
-#     movie_ids = user.get("watchlist", [])
-#     movies = list(
-#         mongo.db.movies.find(
-#             {"movieId": {"$in": movie_ids}},
-#             {"_id": 0, "movieId": 1, "title": 1, "genres": 1}
-#         )
-#     )
-#     return jsonify(movies), 200
-#
-#
-#
-# @app.route('/api/watchlist', methods=['DELETE'])
-# def remove_from_watchlist():
-#     data = request.json
-#     user_id  = data.get("user_id")
-#     movie_id = data.get("movie_id")
-#
-#     if not all([user_id, movie_id]):
-#         return jsonify(error="user_id and movie_id required"), 400
-#
-#     mongo.db.users.update_one(
-#         {"_id": ObjectId(user_id)},
-#         {"$pull": {"watchlist": movie_id}}
-#     )
-#     return jsonify(message="Removed from watchlist"), 200
