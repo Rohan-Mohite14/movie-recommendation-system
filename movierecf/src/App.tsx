@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Navbar from './components/Navbar';
+import MovieCard from './components/MovieCard';
 import Auth from './pages/Auth';
 import Home from './pages/Home';
 import Profile from './pages/Profile';
@@ -20,6 +21,8 @@ function App() {
   const [hasSeenWelcome, setHasSeenWelcome] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [searchResults, setSearchResults] = useState<Movie[]>([]);
+
 
 
   // Handle navigation to home and scroll to top
@@ -27,6 +30,7 @@ function App() {
     setCurrentPage('home');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+  
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -38,6 +42,39 @@ function App() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+  
+  useEffect(() => {
+  const fetchSearchResults = async () => {
+    if (searchQuery.trim() === '') {
+      setSearchResults([]);
+      return;
+    }
+
+    try {
+      const res = await fetch(`http://127.0.0.1:5000/api/search?query=${encodeURIComponent(searchQuery)}`);
+      const data = await res.json();
+
+      const formattedResults = data.map((movie: any) => ({
+        id: movie.movieId || movie.id,
+        title: movie.title,
+        genre: movie.genres || [],
+        plot: [''],
+        poster: 'https://via.placeholder.com/300x400?text=Movie+Poster',
+        rating: 0,
+        year: 2024
+      }));
+
+      setSearchResults(formattedResults);
+    } catch (err) {
+      console.error("Search fetch error:", err);
+    }
+  };
+
+  const delayDebounce = setTimeout(fetchSearchResults, 300); // debounce input
+
+  return () => clearTimeout(delayDebounce);
+}, [searchQuery]);
+
 
   const handleAuth = async (user: { id: string }) => {
   setIsAuthenticated(true);
@@ -222,23 +259,44 @@ function App() {
       />
       
       {showSearch && (
-        <div 
-          ref={searchRef} 
-          className="fixed top-16 w-full bg-gray-800 p-4 shadow-lg z-40 transform transition-all duration-300 ease-in-out"
-        >
-          <div className="max-w-3xl mx-auto relative">
-            <Search className="absolute left-3 top-3 text-gray-400" size={20} />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search movies..."
-              className="w-full pl-10 pr-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
-              autoFocus
-            />
+  <div 
+    ref={searchRef} 
+    className="fixed top-16 w-full bg-gray-800 p-4 shadow-lg z-40 transform transition-all duration-300 ease-in-out"
+  >
+    <div className="max-w-3xl mx-auto relative">
+      <Search className="absolute left-3 top-3 text-gray-400" size={20} />
+      <input
+        type="text"
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        placeholder="Search movies..."
+        className="w-full pl-10 pr-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
+        autoFocus
+      />
+    </div>
+
+    {/* 🔍 Show search results */}
+    {searchResults.length > 0 && (
+      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {searchResults.map((movie) => (
+            <MovieCard
+              key={movie.id}
+              movie={movie}
+              isWishlisted={wishlist.some((m) => m.id === movie.id)}
+              isWatched={watchedMovies.some((m) => m.id === movie.id)}
+              onWishlist={handleWishlist}
+              onWatched={handleWatched}
+              variant="home"
+              />
+            ))}
           </div>
+          )}
+          {searchQuery && searchResults.length === 0 && (
+            <p className="text-gray-400 text-center mt-4">No movies found.</p>
+          )}
         </div>
       )}
+
       
       <div className="pt-16">
         {currentPage === 'profile' && <Profile />}
