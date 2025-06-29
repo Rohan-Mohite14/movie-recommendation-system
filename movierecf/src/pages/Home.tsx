@@ -11,6 +11,8 @@ interface HomeProps {
   onWatched?: (movie: Movie, rating: number) => void;
   showWelcome: boolean;
   onWelcomeSeen: () => void;
+  userId: string | null;  // 
+
 }
 
 
@@ -29,6 +31,7 @@ interface MovieSectionProps {
   watched: Movie[]; // ✅ ADD THIS LINE
   onWishlist: (movie: Movie) => void;
   onWatched?: (movie: Movie, rating: number) => void;
+  userId: string | null;  // 
 }
 
 
@@ -51,6 +54,7 @@ const MovieSection = ({
   watched, // ✅ ADD THIS
   onWishlist,
   onWatched,
+   userId,
 }: MovieSectionProps) => (
 
   <section className="mb-12">
@@ -62,7 +66,7 @@ const MovieSection = ({
         movie={movie}
         isWishlisted={wishlist.some((m) => m.id === movie.id)}
         isWatched={watched.some((m) => m.id === movie.id)} // ✅
-
+        userId={userId} 
         onWishlist={onWishlist}
         onWatched={onWatched}
         variant="home"
@@ -74,7 +78,7 @@ const MovieSection = ({
 );
 
 
-export default function Home({ wishlist,watched, onWishlist, showWelcome, onWelcomeSeen,onWatched }: HomeProps) {
+export default function Home({ wishlist,watched, onWishlist, showWelcome, onWelcomeSeen,onWatched,userId }: HomeProps) {
   const [activeCategory, setActiveCategory] = useState('all');
   const [allMovies, setAllMovies] = useState<Movie[]>([]);
   const [visibleMovies, setVisibleMovies] = useState<Movie[]>([]);
@@ -224,6 +228,7 @@ export default function Home({ wishlist,watched, onWishlist, showWelcome, onWelc
               watched={watched} // ✅ ADD THIS
               onWishlist={onWishlist}
               onWatched={onWatched}
+              userId={userId}
             />
 
           )}
@@ -238,6 +243,7 @@ export default function Home({ wishlist,watched, onWishlist, showWelcome, onWelc
             watched={watched} // ✅ ADD THIS
             onWishlist={onWishlist}
             onWatched={onWatched}
+            userId={userId}
           />
 
           )}

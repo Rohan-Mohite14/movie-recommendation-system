@@ -287,6 +287,7 @@ function App() {
               onWishlist={handleWishlist}
               onWatched={handleWatched}
               variant="home"
+              userId={userId}
               />
             ))}
           </div>
@@ -299,7 +300,7 @@ function App() {
 
       
       <div className="pt-16">
-        {currentPage === 'profile' && <Profile />}
+        {currentPage === 'profile' && userId && <Profile userId={userId} />}
         {currentPage === 'wishlist' && (
           <Wishlist wishlist={wishlist} onWishlist={handleWishlist} />
         )}
@@ -315,6 +316,7 @@ function App() {
             onWatched={handleWatched} 
             showWelcome={!hasSeenWelcome} 
             onWelcomeSeen={() => setHasSeenWelcome(true)} 
+            userId={userId}  // Pass userId
           />
         )}
       </div>

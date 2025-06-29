@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState,useEffect } from 'react';
 import { Star } from 'lucide-react';
 import { Movie } from '../types';
 
@@ -9,6 +9,7 @@ interface MovieCardProps {
   onWishlist: (movie: Movie) => void;
   onWatched?: (movie: Movie, rating: number) => void;
  variant?: 'home' | 'wishlist' | 'watched';
+ userId: string | null; 
 
 }
 
@@ -20,12 +21,48 @@ export default function MovieCard({
   onWishlist,
   onWatched,
   variant = 'home',
+  userId, 
 }: MovieCardProps) {
 
   const [selectedRating, setSelectedRating] = useState<number>(0);
+  useEffect(() => {
+  fetch("/log_event", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      user_id: userId,
+      movieId: movie.id,
+      action: "impression",
+    }),
+  });
+}, []);
+
+const handleClick = () => {
+  if (!userId || !movie.id) return;
+
+  fetch("http://127.0.0.1:5000/log_event", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      user_id: userId,
+      movieId: movie.id,
+      action: "click",
+    }),
+  }).catch((err) => {
+    console.error("Failed to log click event:", err);
+  });
+
+  // Optional: redirect or show modal
+};
+
+
 
   return (
-    <div className="bg-gray-800 rounded-lg overflow-hidden shadow-lg transition-transform hover:scale-105">
+    <div className="bg-gray-800 rounded-lg overflow-hidden shadow-lg transition-transform hover:scale-105 " onClick={handleClick}>
       <img src={movie.poster} alt={movie.title} className="w-full h-64 object-cover" />
       <div className="p-4">
         <div className="flex justify-between items-start">

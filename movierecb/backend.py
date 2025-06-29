@@ -21,6 +21,37 @@ app.config["MONGO_URI"] = "mongodb+srv://Virendra:MongoFirstCluster@movierec.vgf
 mongo = PyMongo(app)
 
 
+def compute_ctr():
+    pipeline = [
+        {"$group": {
+            "_id": {"movieId": "$movieId", "action": "$action"},
+            "count": {"$sum": 1}
+        }},
+        {"$group": {
+            "_id": "$_id.movieId",
+            "actions": {
+                "$push": {
+                    "action": "$_id.action",
+                    "count": "$count"
+                }
+            }
+        }}
+    ]
+
+    results = list(mongo.db.movie_logs.aggregate(pipeline))
+
+    for item in results:
+        movie_id = item["_id"]
+        counts = {a["action"]: a["count"] for a in item["actions"]}
+        impressions = counts.get("impression", 1)  # Avoid divide by zero
+        clicks = counts.get("click", 0)
+        ctr = clicks / impressions
+
+        # Save CTR in movies collection
+        mongo.db.movies.update_one(
+            {"movieId": int(movie_id)},
+            {"$set": {"ctr": ctr}}
+        )
 
 
 @app.route('/signup', methods=['POST'])
@@ -362,20 +393,68 @@ def remove_from_watched():
     })
 
     # Step 3: Log the unwatch interaction
-    # mongo.db.interactions.insert_one({
-    #     "user_id": user_obj_id,
-    #     "movieId": movie_id,
-    #     "rating": None,
-    #     "watched": False,
-    #     "timestamp": int(time.time() * 1000),
-    #     "session_id": session_id,
-    #     "action": "unwatch"
-    # })
+    mongo.db.interactions.insert_one({
+        "user_id": user_obj_id,
+        "movieId": movie_id,
+        "rating": None,
+        "watched": False,
+        "timestamp": int(time.time() * 1000),
+        "session_id": session_id,
+        "action": "unwatch"
+    })
 
     return jsonify({'message': 'Movie removed from watched list, rating deleted, and interaction recorded'}), 200
 
+#User profile
+@app.route('/api/user/<user_id>', methods=['GET'])
+def get_user_profile(user_id):
+    try:
+        user = mongo.db.users.find_one({"_id": ObjectId(user_id)})
+        if not user:
+            return jsonify({"error": "User not found"}), 404
 
+        return jsonify({
+            "name": user["name"],
+            "email": user["email"],
+            "phone": user["phone"]
+        }), 200
+    except Exception as e:
+        return jsonify({"error": f"Something went wrong: {str(e)}"}), 500
+
+
+@app.route('/api/delete/<user_id>', methods=['DELETE'])
+def delete_account(user_id):
+    try:
+        result = mongo.db.users.delete_one({"_id": ObjectId(user_id)})
+        if result.deleted_count == 0:
+            return jsonify({"error": "User not found."}), 404
+        return jsonify({"message": "User deleted successfully."}), 200
+    except Exception as e:
+        return jsonify({"error": f"Deletion failed: {str(e)}"}), 500
 all_movies = list(mongo.db.movies.find().limit(5000))
+
+
+@app.route('/log_event', methods=['POST'])
+def log_event():
+    data = request.get_json()
+    required_fields = {"user_id", "movieId", "action"}
+
+    if not data or not required_fields.issubset(data.keys()):
+        return jsonify({"error": "Missing fields"}), 400
+
+    # Validate action
+    if data["action"] not in ["click", "impression"]:
+        return jsonify({"error": "Invalid action"}), 400
+
+    # Insert into movie_logs
+    mongo.db.movie_logs.insert_one({
+        "user_id": data["user_id"],
+        "movieId": data["movieId"],
+        "action": data["action"],
+        "timestamp": int(datetime.utcnow().timestamp() * 1000)
+    })
+
+    return jsonify({"status": "logged"}), 200
 
 
 @app.route("/api/movies/random", methods=["GET"])
