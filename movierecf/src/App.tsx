@@ -305,7 +305,7 @@ function App() {
           <Wishlist wishlist={wishlist} onWishlist={handleWishlist} />
         )}
         {currentPage === 'watched' && (
-          <Watched watched={watchedMovies} onWishlist={handleWishlist} onWatched={handleWatched} />
+          <Watched watched={watchedMovies} onWishlist={handleWishlist} onWatched={handleWatched} userId={userId}/>
         )}
 
         {currentPage === 'home' && (

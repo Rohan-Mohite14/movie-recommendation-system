@@ -7,13 +7,14 @@ interface WatchedProps {
   watched: Movie[];
   onWishlist: (movie: Movie) => void;
   onWatched: (movie: Movie, rating: number) => void;
+  userId: string | null; 
 }
 
 interface MoviesByCategory {
   [key: string]: Movie[];
 }
 
-export default function Watched({ watched, onWishlist, onWatched }: WatchedProps) {
+export default function Watched({ watched, onWishlist, onWatched,userId }: WatchedProps) {
   const moviesByCategory = watched.reduce((acc: MoviesByCategory, movie) => {
     movie.genre.forEach(genre => {
       if (!acc[genre]) {
@@ -51,6 +52,7 @@ export default function Watched({ watched, onWishlist, onWatched }: WatchedProps
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {movies.map((movie) => (
               <MovieCard
+              userId={userId}
                 key={movie.id}
                 movie={movie}
                 isWishlisted={false}
