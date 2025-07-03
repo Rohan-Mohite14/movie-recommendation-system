@@ -43,16 +43,18 @@ def compute_ctr():
     for item in results:
         movie_id = item["_id"]
         counts = {a["action"]: a["count"] for a in item["actions"]}
-        impressions = counts.get("impression", 1)  # Avoid divide by zero
+        impressions = counts.get("impression", 1)  # Avoid divide-by-zero
         clicks = counts.get("click", 0)
         ctr = clicks / impressions
 
-        # Save CTR in movies collection
         mongo.db.movies.update_one(
             {"movieId": int(movie_id)},
             {"$set": {"ctr": ctr}}
         )
-
+@app.route('/recompute_ctr', methods=['GET'])
+def trigger_ctr():
+    compute_ctr()
+    return jsonify({"status": "CTR updated"})
 
 @app.route('/signup', methods=['POST'])
 def signup():
