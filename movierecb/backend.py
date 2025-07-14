@@ -9,16 +9,53 @@ from bson.objectid import ObjectId
 import time
 import random
 import pickle
-from hybrid_model import HybridRecommender
+from models.ML_code import HybridRecommender
+import os
+from dotenv import load_dotenv
+
 
 #comment
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
-# Replace with your actual Mongo URI
-app.config["MONGO_URI"] = "mongodb+srv://Virendra:MongoFirstCluster@movierec.vgfqr1z.mongodb.net/movieDB?retryWrites=true&w=majority&appName=MovieRec"
+load_dotenv()  # 🔁 Move this here — load .env BEFORE reading Mongo_URI
+
+# Set Mongo URI
+app.config["MONGO_URI"] = os.getenv("Mongo_URI")
+
+# Initialize PyMongo
 mongo = PyMongo(app)
+
+
+MONGO_URI = os.getenv("Mongo_URI")
+DB_NAME = "movieDB"
+
+recommender = HybridRecommender(MONGO_URI, DB_NAME)
+recommender.train()
+
+@app.route('/recommend', methods=['GET'])
+def recommend_movies():
+    user_id = request.args.get("user_id")
+    mode = request.args.get("mode", "hybrid")  # content, collaborative, session, hybrid
+    top_n = int(request.args.get("n", 25))
+
+    recent_raw = request.args.get("recent_movie_ids", "")
+    recent_movie_ids = [int(mid.strip()) for mid in recent_raw.split(",") if mid.strip().isdigit()] if recent_raw else []
+
+    if not user_id:
+        return jsonify({"error": "Missing user_id"}), 400
+
+    try:
+        recommendations = recommender.recommend(
+            user_id=user_id,
+            mode=mode,
+            recent_movie_ids=recent_movie_ids,
+            top_n=top_n
+        )
+        return jsonify(recommendations)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 def compute_ctr():
