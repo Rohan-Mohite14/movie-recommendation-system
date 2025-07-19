@@ -3,8 +3,9 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
-MONGO_URI = os.getenv("Mongo_URI")
-DB_NAME = "movieDB"
+# Connect to MongoDB
+mongo = MongoClient(os.getenv("Mongo_URI"))
+db = mongo["movieDB"]  # 🔁 Replace with actual DB name
 
 def compute_ctr():
     pipeline = [
@@ -37,3 +38,6 @@ def compute_ctr():
             {"movieId": int(movie_id)},
             {"$set": {"ctr": ctr}}
         )
+
+if __name__ == "__main__":
+    compute_ctr()
