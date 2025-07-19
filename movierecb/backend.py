@@ -9,49 +9,82 @@ from bson.objectid import ObjectId
 import time
 import random
 import pickle
-from hybrid_model import HybridRecommender
-
+import os
+from dotenv import load_dotenv
+from models.ML_code import HybridRecommender
+load_dotenv()
 #comment
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 # Replace with your actual Mongo URI
-app.config["MONGO_URI"] = "mongodb+srv://Virendra:MongoFirstCluster@movierec.vgfqr1z.mongodb.net/movieDB?retryWrites=true&w=majority&appName=MovieRec"
+app.config["MONGO_URI"] = os.getenv("Mongo_URI")
 mongo = PyMongo(app)
+MONGO_URI = os.getenv("Mongo_URI")
+DB_NAME = "movieDB"
 
 
-def compute_ctr():
-    pipeline = [
-        {"$group": {
-            "_id": {"movieId": "$movieId", "action": "$action"},
-            "count": {"$sum": 1}
-        }},
-        {"$group": {
-            "_id": "$_id.movieId",
-            "actions": {
-                "$push": {
-                    "action": "$_id.action",
-                    "count": "$count"
-                }
-            }
-        }}
-    ]
 
-    results = list(mongo.db.movie_logs.aggregate(pipeline))
+recommender = HybridRecommender(MONGO_URI, DB_NAME)
+recommender.train()
 
-    for item in results:
-        movie_id = item["_id"]
-        counts = {a["action"]: a["count"] for a in item["actions"]}
-        impressions = counts.get("impression", 1)  # Avoid divide by zero
-        clicks = counts.get("click", 0)
-        ctr = clicks / impressions
+@app.route('/recommend', methods=['GET'])
+def recommend_movies():
+    user_id = request.args.get("user_id")
+    mode = request.args.get("mode", "hybrid")  # content, collaborative, session, hybrid
+    top_n = int(request.args.get("n", 25))
 
-        # Save CTR in movies collection
-        mongo.db.movies.update_one(
-            {"movieId": int(movie_id)},
-            {"$set": {"ctr": ctr}}
+    recent_raw = request.args.get("recent_movie_ids", "")
+    recent_movie_ids = [int(mid.strip()) for mid in recent_raw.split(",") if mid.strip().isdigit()] if recent_raw else []
+
+    if not user_id:
+        return jsonify({"error": "Missing user_id"}), 400
+
+    try:
+        recommendations = recommender.recommend(
+            user_id=user_id,
+            mode=mode,
+            recent_movie_ids=recent_movie_ids,
+            top_n=top_n
         )
+        return jsonify(recommendations)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+
+# def compute_ctr():
+#     pipeline = [
+#         {"$group": {
+#             "_id": {"movieId": "$movieId", "action": "$action"},
+#             "count": {"$sum": 1}
+#         }},
+#         {"$group": {
+#             "_id": "$_id.movieId",
+#             "actions": {
+#                 "$push": {
+#                     "action": "$_id.action",
+#                     "count": "$count"
+#                 }
+#             }
+#         }}
+#     ]
+#
+#     results = list(mongo.db.movie_logs.aggregate(pipeline))
+#
+#     for item in results:
+#         movie_id = item["_id"]
+#         counts = {a["action"]: a["count"] for a in item["actions"]}
+#         impressions = counts.get("impression", 1)  # Avoid divide by zero
+#         clicks = counts.get("click", 0)
+#         ctr = clicks / impressions
+#
+#         # Save CTR in movies collection
+#         mongo.db.movies.update_one(
+#             {"movieId": int(movie_id)},
+#             {"$set": {"ctr": ctr}}
+#         )
 
 
 @app.route('/signup', methods=['POST'])

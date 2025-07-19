@@ -1,68 +1,80 @@
-import React, { useState,useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Star } from 'lucide-react';
 import { Movie } from '../types';
+import { useInView } from 'react-intersection-observer';
 
 interface MovieCardProps {
   movie: Movie;
   isWishlisted: boolean;
-  isWatched?: boolean; // <-- new prop
+  isWatched?: boolean;
   onWishlist: (movie: Movie) => void;
   onWatched?: (movie: Movie, rating: number) => void;
- variant?: 'home' | 'wishlist' | 'watched';
- userId: string | null; 
-
+  variant?: 'home' | 'wishlist' | 'watched';
+  userId: string | null;
 }
-
 
 export default function MovieCard({
   movie,
   isWishlisted,
-  isWatched, // ✅ include this
+  isWatched,
   onWishlist,
   onWatched,
   variant = 'home',
-  userId, 
+  userId,
 }: MovieCardProps) {
-
   const [selectedRating, setSelectedRating] = useState<number>(0);
+  const [hasLoggedImpression, setHasLoggedImpression] = useState(false);
+
+  const { ref, inView } = useInView({
+    triggerOnce: true,
+    threshold: 0.5, // 50% of card must be visible
+  });
+
+  // ✅ Log impression when card is visible
   useEffect(() => {
-  fetch("/log_event", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      user_id: userId,
-      movieId: movie.id,
-      action: "impression",
-    }),
-  });
-}, []);
+    if (inView && !hasLoggedImpression && userId && movie.id) {
+      fetch('http://127.0.0.1:5000/log_event', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          movieId: movie.id,
+          action: 'impression',
+        }),
+      }).catch((err) => {
+        console.error('Failed to log impression event:', err);
+      });
 
-const handleClick = () => {
-  if (!userId || !movie.id) return;
+      setHasLoggedImpression(true);
+    }
+  }, [inView, hasLoggedImpression, userId, movie.id]);
 
-  fetch("http://127.0.0.1:5000/log_event", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      user_id: userId,
-      movieId: movie.id,
-      action: "click",
-    }),
-  }).catch((err) => {
-    console.error("Failed to log click event:", err);
-  });
+  const handleClick = () => {
+    if (!userId || !movie.id) return;
 
-  // Optional: redirect or show modal
-};
-
-
+    fetch('http://127.0.0.1:5000/log_event', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        user_id: userId,
+        movieId: movie.id,
+        action: 'click',
+      }),
+    }).catch((err) => {
+      console.error('Failed to log click event:', err);
+    });
+  };
 
   return (
-    <div className="bg-gray-800 rounded-lg overflow-hidden shadow-lg transition-transform hover:scale-105 " onClick={handleClick}>
+    <div
+      ref={ref}
+      className="bg-gray-800 rounded-lg overflow-hidden shadow-lg transition-transform hover:scale-105"
+      onClick={handleClick}
+    >
       <img src={movie.poster} alt={movie.title} className="w-full h-64 object-cover" />
       <div className="p-4">
         <div className="flex justify-between items-start">
@@ -109,38 +121,37 @@ const handleClick = () => {
 
         <div className="mt-4 flex justify-between space-x-2">
           {variant === 'wishlist' ? (
+            <button
+              className="bg-red-600 hover:bg-red-500 text-white px-3 py-1 rounded-full text-sm w-full"
+              onClick={() => onWishlist(movie)}
+            >
+              Remove from Wishlist
+            </button>
+          ) : variant === 'watched' ? (
+            <button
+              className="bg-red-600 hover:bg-red-500 text-white px-3 py-1 rounded-full text-sm w-full"
+              onClick={() => onWatched?.(movie, 0)}
+            >
+              Remove from Watched
+            </button>
+          ) : (
+            <>
               <button
-                className="bg-red-600 hover:bg-red-500 text-white px-3 py-1 rounded-full text-sm w-full"
+                className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded-full text-sm w-1/2"
                 onClick={() => onWishlist(movie)}
               >
-                Remove from Wishlist
+                {isWishlisted ? 'Remove from Watchlist' : 'Add to Watchlist'}
               </button>
-            ) : variant === 'watched' ? (
-              <button
-                className="bg-red-600 hover:bg-red-500 text-white px-3 py-1 rounded-full text-sm w-full"
-                onClick={() => onWatched?.(movie, 0)} // Send 0 to indicate removal
-              >
-                Remove from Watched
-              </button>
-            ) : (
-              <>
+              {!isWatched && (
                 <button
-                  className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded-full text-sm w-1/2"
-                  onClick={() => onWishlist(movie)}
+                  className="bg-green-600 hover:bg-green-500 text-white px-3 py-1 rounded-full text-sm w-1/2"
+                  onClick={() => onWatched?.(movie, selectedRating)}
                 >
-                  {isWishlisted ? 'Remove from Watchlist' : 'Add to Watchlist'}
+                  Mark as Watched
                 </button>
-                {!isWatched && (
-                  <button
-                    className="bg-green-600 hover:bg-green-500 text-white px-3 py-1 rounded-full text-sm w-1/2"
-                    onClick={() => onWatched?.(movie, selectedRating)}
-                  >
-                    Mark as Watched
-                  </button>
-                )}
-              </>
-            )}
-
+              )}
+            </>
+          )}
         </div>
       </div>
     </div>

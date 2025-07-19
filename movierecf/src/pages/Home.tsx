@@ -60,13 +60,13 @@ const MovieSection = ({
   <section className="mb-12">
     <SectionHeader icon={icon} title={title} subtitle={subtitle} />
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-      {movies.map((movie) => (
+      {movies.map((movie:Movie) => (
         <MovieCard
         key={movie.id}
         movie={movie}
         isWishlisted={wishlist.some((m) => m.id === movie.id)}
         isWatched={watched.some((m) => m.id === movie.id)} // ✅
-        userId={userId} 
+        userId={userId}
         onWishlist={onWishlist}
         onWatched={onWatched}
         variant="home"
@@ -82,33 +82,55 @@ export default function Home({ wishlist,watched, onWishlist, showWelcome, onWelc
   const [activeCategory, setActiveCategory] = useState('all');
   const [allMovies, setAllMovies] = useState<Movie[]>([]);
   const [visibleMovies, setVisibleMovies] = useState<Movie[]>([]);
+  const [recommendedMovies, setRecommendedMovies] = useState<Movie[]>([]);
   const [hasMore, setHasMore] = useState(true);
   const ITEMS_PER_PAGE = 30;
 
   useEffect(() => {
-    const fetchMovies = async () => {
-      try {
-        const response = await fetch('http://127.0.0.1:5000/movies');
-        const data = await response.json();
+  if (!userId) {
+    console.warn('No userId, skipping recommend fetch');
+    return;
+  }
+  console.log("the length is ",recommendedMovies.length);
 
-        const formatted = data.map((movie: any) => ({
-          ...movie,
-          id: movie.id,
-          poster: 'https://via.placeholder.com/300x400?text=Movie+Poster',
-          year: 2024,
-          rating: movie.rating || 0,
-          genre: movie.genre || [],
-        }));
+  const fetchMoviesAndRecommendations = async () => {
+    try {
+      const response = await fetch('http://127.0.0.1:5000/movies');
+      const data = await response.json();
+      const formatted = data.map((movie: any) => ({
+        ...movie,
+        id: String(movie.id),
+        poster: 'https://via.placeholder.com/300x400?text=Movie+Poster',
+        year: 2024,
+        rating: movie.rating || 0,
+        genre: movie.genre || [],
+      }));
 
-        setAllMovies(formatted);
-        setVisibleMovies(formatted.slice(0, ITEMS_PER_PAGE));
-      } catch (error) {
-        console.error('Error fetching movies:', error);
-      }
-    };
+      setAllMovies(formatted);
+      setVisibleMovies(formatted.slice(0, ITEMS_PER_PAGE));
+      console.log('Fetched all movies');
 
-    fetchMovies();
-  }, []);
+      const res = await fetch(`http://127.0.0.1:5000/recommend?user_id=${userId}`);
+      const ids = await res.json();
+      console.log('Recommended IDs:', ids);
+
+      const idList = ids.map((m: any) => String(m.id)); // extract ids
+      const matched = formatted.filter((movie: any) =>
+        idList.includes(String(movie.id))
+      );
+
+      console.log('Matched recommended:', matched);
+
+      setRecommendedMovies(matched);
+    } catch (error) {
+      console.error('Error in fetchMoviesAndRecommendations:', error);
+    }
+  };
+
+  fetchMoviesAndRecommendations();
+}, [userId]);
+
+
 
   const fetchMoreMovies = () => {
     const next = visibleMovies.length + ITEMS_PER_PAGE;
@@ -210,6 +232,20 @@ export default function Home({ wishlist,watched, onWishlist, showWelcome, onWelc
           </div>
         </div>
 
+        {recommendedMovies.length > 0 && (
+          <MovieSection
+            title="Recommended for You"
+            subtitle="Movies we think you'll love"
+            movies={recommendedMovies}
+            icon={Sparkles}
+            wishlist={wishlist}
+            watched={watched}
+            onWishlist={onWishlist}
+            onWatched={onWatched}
+            userId={userId}
+          />
+        )}
+
         {/* Movie Sections */}
         <InfiniteScroll
           dataLength={visibleMovies.length}
@@ -247,6 +283,9 @@ export default function Home({ wishlist,watched, onWishlist, showWelcome, onWelc
           />
 
           )}
+
+
+
         </InfiniteScroll>
       </div>
     </div>
